@@ -33,7 +33,7 @@ module.exports = async function handler(req, res) {
     if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true });
 
     const phone = msg.from;
-    console.log('Número recebido:', phone);
+    console.log('NUMERO:', JSON.stringify(phone));
     const texto = msg.text?.body?.trim() || '';
     if (!texto) return res.status(200).json({ ok: true });
 
