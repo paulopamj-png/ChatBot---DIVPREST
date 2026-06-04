@@ -32,7 +32,7 @@ module.exports = async function handler(req, res) {
     const msg = req.body?.entry?.[0]?.changes?.[0]?.value?.messages?.[0];
     if (!msg || msg.type !== 'text') return res.status(200).json({ ok: true });
 
-    const phone = '5581996927825';
+    const phone = msg.from;
     console.log('NUMERO:', JSON.stringify(phone));
     const texto = msg.text?.body?.trim() || '';
     if (!texto) return res.status(200).json({ ok: true });
