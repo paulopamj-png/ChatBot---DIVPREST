@@ -157,8 +157,9 @@ async function consultarSuprimentos(pergunta) {
 
 // ── Enviar mensagem Meta API ───────────────────────────────
 async function enviarMensagem(para, texto) {
-  // Normaliza o número removendo caracteres não numéricos
   para = para.replace(/\D/g, '');
+  console.log('ENVIANDO PARA:', para);
+  
   const url = `https://graph.facebook.com/v19.0/${PHONE_ID}/messages`;
   const r = await fetch(url, {
     method: 'POST',
