@@ -1,0 +1,1654 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Chatbot — Gestão de Fluxos</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@600;700;800&family=DM+Mono:wght@400;500&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<style>
+:root {
+  --bg: #0c0f1a;
+  --s1: #131724;
+  --s2: #181d2e;
+  --s3: #1e2438;
+  --b1: #242a3e;
+  --b2: #2c3350;
+  --accent: #00d4aa;
+  --blue: #4f8eff;
+  --purple: #a78bfa;
+  --orange: #ffb547;
+  --red: #ff5370;
+  --text: #dde0f0;
+  --t2: #8890b5;
+  --t3: #4e5575;
+  --r: 10px;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: var(--bg); color: var(--text); font-family: 'Inter', sans-serif; font-size: 13px; height: 100vh; overflow: hidden; display: flex; }
+
+/* ── SIDEBAR ── */
+.sb { width: 200px; background: var(--s1); border-right: 1px solid var(--b1); display: flex; flex-direction: column; flex-shrink: 0; }
+.sb-logo { padding: 18px 16px 14px; border-bottom: 1px solid var(--b1); }
+.sb-logo-name { font-family: 'Syne', sans-serif; font-weight: 800; font-size: 14px; color: var(--accent); display: flex; align-items: center; gap: 7px; }
+.sb-logo-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 2s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:.3} }
+.sb-logo-sub { font-size: 10px; color: var(--t3); margin-top: 2px; }
+.sb-nav { flex: 1; padding: 10px 0; }
+.sb-item { display: flex; align-items: center; gap: 8px; padding: 8px 14px; cursor: pointer; color: var(--t2); border-left: 2px solid transparent; font-size: 12.5px; transition: all .12s; user-select: none; }
+.sb-item:hover { color: var(--text); background: rgba(255,255,255,.03); }
+.sb-item.on { color: var(--accent); border-left-color: var(--accent); background: rgba(0,212,170,.06); }
+.sb-item .ico { font-size: 14px; width: 16px; text-align: center; }
+.sb-foot { padding: 12px 14px; border-top: 1px solid var(--b1); }
+.sb-ver { font-size: 10px; color: var(--t3); font-family: 'DM Mono', monospace; }
+
+/* ── MAIN ── */
+.main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── TOP BAR ── */
+.topbar { padding: 16px 24px; border-bottom: 1px solid var(--b1); display: flex; align-items: center; justify-content: space-between; flex-shrink: 0; background: var(--s1); }
+.topbar-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 17px; }
+.topbar-title span { color: var(--accent); }
+.topbar-actions { display: flex; gap: 8px; }
+
+/* ── TABS ── */
+.tabbar { display: flex; padding: 0 24px; border-bottom: 1px solid var(--b1); background: var(--s1); flex-shrink: 0; }
+.tbtab { padding: 10px 14px; font-size: 12px; cursor: pointer; color: var(--t2); border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all .12s; white-space: nowrap; }
+.tbtab:hover { color: var(--text); }
+.tbtab.on { color: var(--accent); border-bottom-color: var(--accent); font-weight: 500; }
+
+/* ── WORKSPACE (canvas principal) ── */
+.workspace { flex: 1; overflow: hidden; display: flex; }
+.pane { display: none; flex: 1; overflow: hidden; }
+.pane.on { display: flex; }
+
+/* ══════════════════════════════════════
+   PANE: FLUXO (layout 3 colunas)
+══════════════════════════════════════ */
+.flow-layout { display: flex; flex: 1; overflow: hidden; }
+
+/* Coluna esquerda: níveis */
+.levels-col { width: 280px; background: var(--s1); border-right: 1px solid var(--b1); display: flex; flex-direction: column; flex-shrink: 0; }
+.levels-header { padding: 14px 16px 10px; border-bottom: 1px solid var(--b1); }
+.levels-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 12px; color: var(--t2); text-transform: uppercase; letter-spacing: .6px; }
+
+/* BREADCRUMB */
+.breadcrumb { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; padding: 10px 16px; border-bottom: 1px solid var(--b1); min-height: 40px; }
+.bc-item { font-size: 11px; color: var(--t2); cursor: pointer; padding: 3px 7px; border-radius: 5px; transition: all .1s; white-space: nowrap; max-width: 100px; overflow: hidden; text-overflow: ellipsis; }
+.bc-item:hover { color: var(--accent); background: rgba(0,212,170,.08); }
+.bc-item.current { color: var(--text); font-weight: 500; background: rgba(255,255,255,.06); }
+.bc-sep { color: var(--t3); font-size: 10px; }
+
+/* LISTA DE ITENS */
+.items-list { flex: 1; overflow-y: auto; padding: 10px; }
+.items-list::-webkit-scrollbar { width: 4px; }
+.items-list::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 4px; }
+
+.flow-item {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 10px; border-radius: 8px;
+  border: 1px solid var(--b1);
+  background: var(--s2);
+  margin-bottom: 5px;
+  cursor: pointer;
+  transition: all .12s;
+  position: relative;
+}
+.flow-item:hover { border-color: var(--b2); background: var(--s3); }
+.flow-item.active { border-color: var(--blue); background: rgba(79,142,255,.07); }
+.flow-item.has-children { border-color: rgba(79,142,255,.3); }
+.flow-item.has-children:hover { border-color: var(--blue); }
+
+.fi-key {
+  font-family: 'DM Mono', monospace; font-size: 11px; font-weight: 500;
+  width: 24px; height: 24px; border-radius: 6px;
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0; color: #fff; font-size: 10px;
+}
+.fi-key-menu { background: var(--blue); }
+.fi-key-answer { background: var(--accent); color: #000; }
+.fi-key-transfer { background: var(--purple); }
+.fi-key-link { background: var(--orange); color: #000; }
+
+.fi-info { flex: 1; min-width: 0; }
+.fi-label { font-size: 12.5px; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fi-meta { font-size: 10.5px; color: var(--t2); margin-top: 1px; display: flex; align-items: center; gap: 5px; }
+.fi-type-tag { font-size: 9.5px; padding: 1px 6px; border-radius: 4px; font-weight: 500; }
+.tag-menu { background: rgba(79,142,255,.12); color: var(--blue); }
+.tag-answer { background: rgba(0,212,170,.12); color: var(--accent); }
+.tag-transfer { background: rgba(167,139,250,.12); color: var(--purple); }
+.tag-link { background: rgba(255,181,71,.12); color: var(--orange); }
+
+.fi-arrow { color: var(--t3); font-size: 12px; flex-shrink: 0; transition: color .12s; }
+.flow-item.has-children .fi-arrow { color: var(--blue); }
+.flow-item.active .fi-arrow { color: var(--accent); }
+
+.fi-actions { display: none; gap: 3px; flex-shrink: 0; }
+.flow-item:hover .fi-actions { display: flex; }
+
+/* BOTÃO ADD ITEM */
+.add-item-btn {
+  display: flex; align-items: center; gap: 8px;
+  padding: 8px 10px; border-radius: 8px;
+  border: 1px dashed var(--b2);
+  color: var(--t2); cursor: pointer;
+  font-size: 12px; transition: all .12s;
+  margin-top: 4px;
+}
+.add-item-btn:hover { border-color: var(--accent); color: var(--accent); background: rgba(0,212,170,.04); }
+
+/* Coluna central: editor do nó selecionado */
+.editor-col { flex: 1; display: flex; flex-direction: column; overflow: hidden; background: var(--bg); }
+.editor-empty { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; color: var(--t3); gap: 12px; }
+.editor-empty-icon { font-size: 40px; opacity: .4; }
+.editor-empty-text { font-size: 13px; }
+.editor-form { flex: 1; overflow-y: auto; padding: 24px; }
+.editor-form::-webkit-scrollbar { width: 4px; }
+.editor-form::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 4px; }
+
+.editor-node-header { display: flex; align-items: center; gap: 12px; margin-bottom: 22px; padding-bottom: 16px; border-bottom: 1px solid var(--b1); }
+.editor-node-icon { width: 40px; height: 40px; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px; flex-shrink: 0; }
+.editor-node-name { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 16px; }
+.editor-node-path { font-size: 11px; color: var(--t2); margin-top: 3px; font-family: 'DM Mono', monospace; }
+
+/* TYPE PILLS */
+.type-pills { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.type-pill {
+  display: flex; align-items: center; gap: 6px;
+  padding: 7px 14px; border-radius: 20px;
+  border: 1.5px solid var(--b2);
+  cursor: pointer; font-size: 12px; font-weight: 500;
+  transition: all .12s; color: var(--t2);
+}
+.type-pill:hover { border-color: var(--t2); color: var(--text); }
+.type-pill.on { color: #fff; }
+.type-pill[data-t="menu"].on { border-color: var(--blue); background: rgba(79,142,255,.15); color: var(--blue); }
+.type-pill[data-t="answer"].on { border-color: var(--accent); background: rgba(0,212,170,.12); color: var(--accent); }
+.type-pill[data-t="transfer"].on { border-color: var(--purple); background: rgba(167,139,250,.12); color: var(--purple); }
+.type-pill[data-t="link"].on { border-color: var(--orange); background: rgba(255,181,71,.12); color: var(--orange); }
+
+/* FORM FIELDS */
+.fld { margin-bottom: 18px; }
+.fld label { display: block; font-size: 10.5px; font-weight: 600; color: var(--t2); margin-bottom: 6px; text-transform: uppercase; letter-spacing: .6px; }
+.fld input, .fld textarea, .fld select {
+  width: 100%; background: var(--s2); border: 1px solid var(--b2);
+  border-radius: 8px; padding: 9px 12px; color: var(--text);
+  font-family: 'Inter', sans-serif; font-size: 13px;
+  outline: none; resize: vertical; transition: border-color .12s;
+}
+.fld input:focus, .fld textarea:focus, .fld select:focus { border-color: var(--accent); }
+.fld textarea { min-height: 100px; line-height: 1.6; }
+.fld-hint { font-size: 10.5px; color: var(--t3); margin-top: 5px; }
+.fld-row { display: grid; grid-template-columns: 80px 1fr; gap: 12px; }
+
+/* KW */
+.kw-wrap { display: flex; flex-wrap: wrap; gap: 5px; margin-bottom: 8px; }
+.kw-chip { background: rgba(79,142,255,.1); color: var(--blue); border: 1px solid rgba(79,142,255,.25); border-radius: 20px; padding: 3px 10px 3px 10px; font-size: 11.5px; display: flex; align-items: center; gap: 5px; }
+.kw-chip button { background: none; border: none; cursor: pointer; color: var(--t2); font-size: 14px; line-height: 1; padding: 0; }
+.kw-chip button:hover { color: var(--red); }
+.kw-add-row { display: flex; gap: 7px; }
+.kw-add-row input { flex: 1; background: var(--s2); border: 1px solid var(--b2); border-radius: 7px; padding: 7px 11px; color: var(--text); font-size: 12px; outline: none; font-family: 'Inter', sans-serif; }
+.kw-add-row input:focus { border-color: var(--blue); }
+
+/* CHILDREN PREVIEW (no editor) */
+.children-preview { background: var(--s2); border: 1px solid var(--b1); border-radius: 9px; overflow: hidden; }
+.cp-header { padding: 10px 14px; border-bottom: 1px solid var(--b1); display: flex; justify-content: space-between; align-items: center; font-size: 12px; color: var(--t2); }
+.cp-list { padding: 8px; display: flex; flex-direction: column; gap: 4px; }
+.cp-item { display: flex; align-items: center; gap: 8px; padding: 7px 10px; border-radius: 7px; background: var(--s3); font-size: 12px; cursor: pointer; transition: background .1s; }
+.cp-item:hover { background: var(--b1); }
+.cp-item-key { font-family: 'DM Mono', monospace; font-size: 10px; width: 20px; height: 20px; border-radius: 5px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.cp-empty { padding: 12px; text-align: center; color: var(--t3); font-size: 12px; }
+
+/* EDITOR FOOTER */
+.editor-footer { padding: 14px 24px; border-top: 1px solid var(--b1); display: flex; gap: 8px; justify-content: flex-end; flex-shrink: 0; background: var(--s1); }
+
+/* ══════════════════════════════════════
+   PANE: SETTINGS
+══════════════════════════════════════ */
+.settings-pane { flex: 1; overflow-y: auto; padding: 24px; }
+.settings-pane::-webkit-scrollbar { width: 4px; }
+.settings-pane::-webkit-scrollbar-thumb { background: var(--b2); border-radius: 4px; }
+
+/* ══════════════════════════════════════
+   PANE: PREVIEW
+══════════════════════════════════════ */
+.preview-pane { flex: 1; display: flex; gap: 24px; padding: 24px; overflow: auto; }
+.phone-frame { width: 280px; background: #111; border-radius: 30px; padding: 10px; border: 6px solid #1c1c1c; flex-shrink: 0; box-shadow: 0 30px 80px rgba(0,0,0,.6); }
+.phone-bar { background: #075e54; border-radius: 16px 16px 0 0; padding: 9px 12px; display: flex; align-items: center; gap: 8px; }
+.phone-av { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 800; color: #000; font-family: 'Syne', sans-serif; flex-shrink: 0; }
+.phone-name { font-size: 12px; font-weight: 600; color: #fff; }
+.phone-status { font-size: 9.5px; color: #a8d5cc; }
+.phone-body { background: #0d1117; border-radius: 0 0 16px 16px; padding: 10px; min-height: 380px; max-height: 480px; display: flex; flex-direction: column; gap: 6px; overflow-y: auto; }
+.phone-body::-webkit-scrollbar { width: 3px; }
+.phone-body::-webkit-scrollbar-thumb { background: #333; border-radius: 3px; }
+.bubble { background: #1f2c34; border-radius: 4px 12px 12px 12px; padding: 7px 10px; font-size: 11px; color: #e1e1e1; line-height: 1.55; max-width: 90%; white-space: pre-wrap; word-break: break-word; }
+.bubble.u { background: #054640; border-radius: 12px 4px 12px 12px; align-self: flex-end; }
+.bubble-ts { font-size: 9px; color: #4a5568; margin-top: 1px; text-align: right; }
+.phone-inp { display: flex; gap: 5px; margin-top: 7px; }
+.phone-inp input { flex: 1; background: #1a1a2e; border: 1px solid #2d3748; border-radius: 18px; padding: 7px 13px; color: #fff; font-size: 11.5px; outline: none; font-family: 'Inter', sans-serif; }
+.phone-inp button { background: var(--accent); border: none; border-radius: 50%; width: 32px; height: 32px; cursor: pointer; font-size: 13px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.preview-tips { flex: 1; min-width: 200px; }
+
+/* ══════════════════════════════════════
+   PANE: EXPORT
+══════════════════════════════════════ */
+.export-pane { flex: 1; overflow-y: auto; padding: 24px; }
+
+/* ── CARDS ── */
+.card { background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r); overflow: hidden; margin-bottom: 14px; }
+.card-hd { padding: 12px 16px; border-bottom: 1px solid var(--b1); background: var(--s2); display: flex; align-items: center; justify-content: space-between; }
+.card-hd-title { font-family: 'Syne', sans-serif; font-weight: 600; font-size: 13px; display: flex; align-items: center; gap: 7px; }
+.card-bd { padding: 16px; }
+
+/* ── STATS ROW ── */
+.stats { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; margin-bottom: 18px; }
+.stat { background: var(--s1); border: 1px solid var(--b1); border-radius: var(--r); padding: 12px 14px; }
+.stat-v { font-family: 'Syne', sans-serif; font-size: 22px; font-weight: 800; }
+.stat-l { font-size: 10.5px; color: var(--t3); margin-top: 2px; }
+
+/* ── BTNS ── */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 7px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; font-family: 'Inter', sans-serif; transition: all .12s; white-space: nowrap; }
+.btn-p { background: var(--accent); color: #000; }
+.btn-p:hover { background: #00ebb9; }
+.btn-g { background: transparent; color: var(--t2); border: 1px solid var(--b2); }
+.btn-g:hover { color: var(--text); border-color: var(--t2); }
+.btn-d { background: rgba(255,83,112,.1); color: var(--red); border: 1px solid rgba(255,83,112,.2); }
+.btn-d:hover { background: rgba(255,83,112,.2); }
+.btn-b { background: rgba(79,142,255,.1); color: var(--blue); border: 1px solid rgba(79,142,255,.25); }
+.btn-b:hover { background: rgba(79,142,255,.2); }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-xs { padding: 3px 7px; font-size: 10.5px; }
+.btn-ico { padding: 5px; border-radius: 6px; }
+
+/* ── MODAL ── */
+.overlay { position: fixed; inset: 0; background: rgba(0,0,0,.8); z-index: 500; display: none; align-items: center; justify-content: center; }
+.overlay.on { display: flex; }
+.modal { background: var(--s1); border: 1px solid var(--b2); border-radius: 14px; width: 360px; max-width: 95vw; animation: popIn .15s ease; }
+@keyframes popIn { from{transform:scale(.95);opacity:0} to{transform:scale(1);opacity:1} }
+.modal-hd { padding: 15px 18px; border-bottom: 1px solid var(--b1); display: flex; justify-content: space-between; align-items: center; }
+.modal-hd-title { font-family: 'Syne', sans-serif; font-weight: 700; font-size: 14px; }
+.modal-close { background: none; border: none; color: var(--t2); font-size: 16px; cursor: pointer; }
+.modal-bd { padding: 18px; }
+.modal-ft { padding: 12px 18px; border-top: 1px solid var(--b1); display: flex; justify-content: flex-end; gap: 8px; }
+
+/* ── TOAST ── */
+.toast { position: fixed; bottom: 20px; right: 20px; background: var(--s2); border: 1px solid var(--b2); color: var(--text); padding: 10px 16px; border-radius: 9px; font-size: 12.5px; z-index: 1000; transform: translateY(60px); opacity: 0; transition: all .22s; display: flex; align-items: center; gap: 7px; box-shadow: 0 8px 24px rgba(0,0,0,.5); }
+.toast.on { transform: translateY(0); opacity: 1; }
+
+/* ── DIVIDER ── */
+.div { height: 1px; background: var(--b1); margin: 16px 0; }
+.t2 { color: var(--t2); }
+.t3 { color: var(--t3); }
+.mono { font-family: 'DM Mono', monospace; font-size: 11px; }
+</style>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<script>
+if(window.pdfjsLib) pdfjsLib.GlobalWorkerOptions.workerSrc = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+</script>
+</head>
+<body>
+
+<!-- ── SIDEBAR ── -->
+<aside class="sb">
+  <div class="sb-logo">
+    <div class="sb-logo-name"><span class="sb-logo-dot"></span> ChatBot</div>
+    <div class="sb-logo-sub">Prestação de Contas</div>
+  </div>
+  <nav class="sb-nav">
+    <div class="sb-item on" onclick="goPane('flow')"><span class="ico">🌿</span> Fluxo de menus</div>
+    <div class="sb-item" onclick="goPane('settings')"><span class="ico">⚙️</span> Configurações</div>
+    <div class="sb-item" onclick="goPane('preview')"><span class="ico">📱</span> Pré-visualizar</div>
+    <div class="sb-item" onclick="goPane('export')"><span class="ico">⬇</span> Exportar</div>
+    <div class="sb-item" onclick="goPane('pdfs')"><span class="ico">📄</span> PDFs / Dados</div>
+  </nav>
+  <div class="sb-foot"><div class="sb-ver">v3.0</div></div>
+</aside>
+
+<!-- ── MAIN ── -->
+<div class="main">
+  <div class="topbar">
+    <div style="display:flex;align-items:center;gap:12px">
+      <div class="topbar-title">Fluxo do <span>Chatbot</span></div>
+      <div id="save-mode-badge" style="font-size:10px;padding:3px 9px;border-radius:20px;font-weight:600;background:rgba(79,142,255,.12);color:var(--blue);border:1px solid rgba(79,142,255,.25)">💾 localStorage</div>
+    </div>
+    <div class="topbar-actions">
+      <button class="btn btn-g btn-sm" onclick="loadDefault()" title="Restaurar dados de exemplo">↺ Padrão</button>
+      <button class="btn btn-g btn-sm" onclick="importJSON()" title="Abrir arquivo .json">📂 Abrir .json</button>
+      <button class="btn btn-g btn-sm" onclick="exportJSON()" title="Baixar .json">⬇ Salvar .json</button>
+      <button class="btn btn-p btn-sm" onclick="saveAll()">💾 Salvar</button>
+    </div>
+  </div>
+  <input type="file" id="json-file-input" accept=".json" style="display:none" onchange="handleJSONImport(event)"/>
+  <div class="tabbar">
+    <div class="tbtab on" onclick="goPane('flow')">🌿 Fluxo</div>
+    <div class="tbtab" onclick="goPane('settings')">⚙️ Configurações</div>
+    <div class="tbtab" onclick="goPane('preview')">📱 Preview</div>
+    <div class="tbtab" onclick="goPane('export')">⬇ Exportar</div>
+    <div class="tbtab" onclick="goPane('pdfs')">📄 PDFs</div>
+  </div>
+
+  <div class="workspace">
+
+    <!-- ══ PANE: FLUXO ══ -->
+    <div class="pane on" id="pane-flow">
+      <div class="flow-layout">
+
+        <!-- Coluna esquerda: navegação em níveis -->
+        <div class="levels-col">
+          <div class="levels-header">
+            <div class="levels-title">Nível atual</div>
+          </div>
+          <!-- Breadcrumb mostra onde você está -->
+          <div class="breadcrumb" id="breadcrumb">
+            <span class="bc-item current" onclick="goLevel(null)">🏠 Raiz</span>
+          </div>
+          <!-- Lista de itens do nível atual -->
+          <div class="items-list" id="items-list"></div>
+        </div>
+
+        <!-- Coluna direita: editor do item selecionado -->
+        <div class="editor-col">
+          <div class="editor-empty" id="editor-empty">
+            <div class="editor-empty-icon">👈</div>
+            <div class="editor-empty-text">Selecione ou crie um item</div>
+          </div>
+          <div class="editor-form" id="editor-form" style="display:none"></div>
+          <div class="editor-footer" id="editor-footer" style="display:none">
+            <button class="btn btn-d btn-sm" id="btn-del-node">🗑 Excluir</button>
+            <div style="flex:1"></div>
+            <button class="btn btn-g btn-sm" onclick="cancelEdit()">Cancelar</button>
+            <button class="btn btn-p btn-sm" onclick="saveNode()">💾 Salvar alterações</button>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ══ PANE: SETTINGS ══ -->
+    <div class="pane" id="pane-settings">
+      <div class="settings-pane">
+        <div class="stats" id="stats-row">
+          <div class="stat"><div class="stat-v" id="st-m" style="color:var(--blue)">0</div><div class="stat-l">Menus</div></div>
+          <div class="stat"><div class="stat-v" id="st-a" style="color:var(--accent)">0</div><div class="stat-l">Respostas finais</div></div>
+          <div class="stat"><div class="stat-v" id="st-d" style="color:var(--purple)">0</div><div class="stat-l">Níveis</div></div>
+          <div class="stat"><div class="stat-v" id="st-k" style="color:var(--orange)">0</div><div class="stat-l">Palavras-chave</div></div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-hd-title">👋 Mensagem de boas-vindas</div></div>
+          <div class="card-bd">
+            <div class="fld">
+              <label>Exibida ao digitar "oi", "menu", "olá"…</label>
+              <textarea id="cfg-welcome" rows="7"></textarea>
+              <div class="fld-hint">Use *negrito*, _itálico_ e emojis. Liste os números das opções.</div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-hd-title">❓ Resposta padrão (não entendido)</div></div>
+          <div class="card-bd">
+            <div class="fld"><textarea id="cfg-default" rows="3"></textarea></div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd"><div class="card-hd-title">🔙 Palavras que voltam ao menu principal</div></div>
+          <div class="card-bd">
+            <div class="kw-wrap" id="kw-menu-wrap"></div>
+            <div class="kw-add-row">
+              <input id="kw-menu-inp" placeholder="Ex: menu, oi, inicio…" onkeydown="if(event.key==='Enter')addMenuKw()"/>
+              <button class="btn btn-b btn-sm" onclick="addMenuKw()">+ Adicionar</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PANE: PREVIEW ══ -->
+    <div class="pane" id="pane-preview">
+      <div class="preview-pane">
+        <div>
+          <div class="phone-frame">
+            <div class="phone-bar">
+              <div class="phone-av">PC</div>
+              <div>
+                <div class="phone-name">Prestação de Contas</div>
+                <div class="phone-status">online</div>
+              </div>
+            </div>
+            <div class="phone-body" id="phone-body">
+              <div class="bubble">Digite "oi" para começar 👋</div>
+            </div>
+            <div class="phone-inp">
+              <input id="sim-inp" placeholder="Mensagem…" onkeydown="if(event.key==='Enter')simulate()"/>
+              <button onclick="simulate()">➤</button>
+            </div>
+          </div>
+        </div>
+        <div class="preview-tips">
+          <div class="card">
+            <div class="card-hd"><div class="card-hd-title">🧪 Como usar o simulador</div></div>
+            <div class="card-bd" style="line-height:1.8;color:var(--t2);font-size:12px">
+              <p>Digite <b style="color:var(--text)">"oi"</b> para ver o menu principal.</p>
+              <div class="div"></div>
+              <p>Digite um <b style="color:var(--text)">número</b> para navegar pelas opções.</p>
+              <div class="div"></div>
+              <p>Digite <b style="color:var(--text)">"0"</b> para voltar ao menu principal.</p>
+              <div class="div"></div>
+              <p>Tente também <b style="color:var(--text)">palavras-chave</b> como "prazo", "documento"…</p>
+              <div class="div"></div>
+              <button class="btn btn-g btn-sm" onclick="clearChat()">🗑 Limpar conversa</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══ PANE: EXPORT ══ -->
+    <div class="pane" id="pane-export">
+      <div class="export-pane">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-hd-title">⬇ Exportar respostas.js</div>
+            <button class="btn btn-p" onclick="exportJS()">⬇ Baixar arquivo</button>
+          </div>
+          <div class="card-bd">
+            <p style="font-size:12px;color:var(--t2);margin-bottom:14px">Substitua o arquivo no projeto e faça <span class="mono">git push</span>. A Vercel republica em ~30 segundos.</p>
+            <div class="fld">
+              <label>Código gerado</label>
+              <textarea id="export-pre" style="font-family:'DM Mono',monospace;font-size:10px;min-height:400px;background:var(--bg);line-height:1.6" readonly></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+
+    <!-- PANE PDFs -->
+    <div class="pane" id="pane-pdfs">
+      <div style="flex:1;overflow-y:auto;padding:24px">
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-hd-title">Prazos de Prestação de Contas</div>
+            <div style="display:flex;gap:8px">
+              <button class="btn btn-b btn-sm" onclick="document.getElementById('pdf-prazos-inp').click()">Importar PDF</button>
+              <button class="btn btn-g btn-sm" onclick="addPrazoManual()">+ Linha manual</button>
+            </div>
+          </div>
+          <div class="card-bd">
+            <input type="file" id="pdf-prazos-inp" accept=".pdf" style="display:none" onchange="handlePrazosPDF(event)"/>
+            <div id="pdf-prazos-status" style="font-size:11.5px;color:var(--t2);margin-bottom:12px;min-height:18px"></div>
+            <div style="overflow-x:auto">
+              <table id="prazos-table" style="width:100%;border-collapse:collapse;font-size:12px">
+                <thead>
+                  <tr style="background:var(--s3)">
+                    <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--t2);border-bottom:1px solid var(--b1)">Nr Empenho</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--t2);border-bottom:1px solid var(--b1)">Nr OB</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--t2);border-bottom:1px solid var(--b1)">Valor</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--t2);border-bottom:1px solid var(--b1)">Prazo real (PDF)</th>
+                    <th style="padding:8px 10px;text-align:left;font-weight:600;color:var(--accent);border-bottom:1px solid var(--b1)">Prazo bot (menos 15 dias)</th>
+                    <th style="padding:8px 10px;border-bottom:1px solid var(--b1)"></th>
+                  </tr>
+                </thead>
+                <tbody id="prazos-tbody"></tbody>
+              </table>
+            </div>
+            <div id="prazos-empty" style="text-align:center;padding:28px;color:var(--t3);font-size:12px">Nenhum dado. Importe um PDF ou adicione manualmente.</div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-hd-title">Regras de Suprimentos de Fundos</div>
+            <button class="btn btn-b btn-sm" onclick="document.getElementById('pdf-sup-inp').click()">Importar PDF</button>
+          </div>
+          <div class="card-bd">
+            <input type="file" id="pdf-sup-inp" accept=".pdf" style="display:none" onchange="handleSuprimentosPDF(event)"/>
+            <div id="pdf-sup-status" style="font-size:11.5px;color:var(--t2);margin-bottom:10px;min-height:18px"></div>
+            <div class="fld">
+              <label>Texto extraido (editavel)</label>
+              <textarea id="sup-texto" rows="10" placeholder="O texto extraido do PDF aparece aqui. Voce pode editar diretamente."></textarea>
+              <div style="font-size:11px;color:var(--t3);margin-top:5px">Este texto e enviado a IA quando um servidor pergunta sobre suprimentos.</div>
+            </div>
+            <div class="fld" style="margin-top:14px">
+              <label>Testar uma pergunta</label>
+              <div style="display:flex;gap:8px">
+                <input id="sup-teste-inp" placeholder="Ex: Posso comprar material de limpeza?" style="flex:1;background:var(--bg);border:1px solid var(--b2);border-radius:8px;padding:8px 12px;color:var(--text);font-family:inherit;font-size:12.5px;outline:none" onkeydown="if(event.key===&#39;Enter&#39;)testarSuprimentos()"/>
+                <button class="btn btn-b btn-sm" onclick="testarSuprimentos()">Testar IA</button>
+              </div>
+              <div id="sup-teste-resp" style="margin-top:10px;font-size:12px;color:var(--text);background:var(--s2);border:1px solid var(--b1);border-radius:8px;padding:10px 12px;display:none;white-space:pre-wrap;line-height:1.6"></div>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-hd">
+            <div class="card-hd-title">Exportar dados.js</div>
+            <button class="btn btn-p" onclick="exportDadosJS()">Baixar dados.js</button>
+          </div>
+          <div class="card-bd">
+            <p style="font-size:12px;color:var(--t2);margin-bottom:10px">Substitua o dados.js no projeto e faca git push. Adicione ANTHROPIC_API_KEY nas variaveis de ambiente da Vercel para o recurso de suprimentos.</p>
+            <div class="fld">
+              <label>Pre-visualizacao</label>
+              <textarea id="dados-preview" style="font-family:'DM Mono',monospace;font-size:10px;min-height:200px;background:var(--bg);line-height:1.6" readonly></textarea>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /workspace -->
+</div><!-- /main -->
+
+<!-- ══ MODAL: Novo item ══ -->
+<div class="overlay" id="modal-new">
+  <div class="modal">
+    <div class="modal-hd">
+      <div class="modal-hd-title" id="modal-new-title">Novo item</div>
+      <button class="modal-close" onclick="closeModal('modal-new')">✕</button>
+    </div>
+    <div class="modal-bd">
+      <p style="font-size:12px;color:var(--t2);margin-bottom:16px">Que tipo de item você quer criar?</p>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px">
+        <div class="new-type-card" data-type="menu" onclick="createNode('menu')">
+          <div style="font-size:26px;margin-bottom:6px">☰</div>
+          <div style="font-weight:600;font-size:13px;color:var(--blue)">Submenu</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:3px">Apresenta mais opções ao usuário</div>
+        </div>
+        <div class="new-type-card" data-type="answer" onclick="createNode('answer')">
+          <div style="font-size:26px;margin-bottom:6px">✅</div>
+          <div style="font-weight:600;font-size:13px;color:var(--accent)">Resposta final</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:3px">Entrega um texto ao usuário</div>
+        </div>
+        <div class="new-type-card" data-type="transfer" onclick="createNode('transfer')">
+          <div style="font-size:26px;margin-bottom:6px">👤</div>
+          <div style="font-weight:600;font-size:13px;color:var(--purple)">Transferir</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:3px">Encaminha para atendente humano</div>
+        </div>
+        <div class="new-type-card" data-type="link" onclick="createNode('link')">
+          <div style="font-size:26px;margin-bottom:6px">🔗</div>
+          <div style="font-weight:600;font-size:13px;color:var(--orange)">Link</div>
+          <div style="font-size:11px;color:var(--t2);margin-top:3px">Envia uma URL para o usuário</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+<style>
+.new-type-card { background: var(--s2); border: 1.5px solid var(--b2); border-radius: 10px; padding: 14px; cursor: pointer; text-align: center; transition: all .12s; }
+.new-type-card:hover { background: var(--s3); border-color: var(--t2); transform: translateY(-1px); }
+</style>
+
+<!-- ══ MODAL: Confirmar delete ══ -->
+<div class="overlay" id="modal-del">
+  <div class="modal">
+    <div class="modal-hd"><div class="modal-hd-title">Confirmar exclusão</div><button class="modal-close" onclick="closeModal('modal-del')">✕</button></div>
+    <div class="modal-bd"><p style="font-size:13px;color:var(--t2)">Tem certeza? Se houver subitens, <strong style="color:var(--text)">todos serão removidos</strong>.</p></div>
+    <div class="modal-ft">
+      <button class="btn btn-g" onclick="closeModal('modal-del')">Cancelar</button>
+      <button class="btn btn-d" id="btn-del-confirm">Remover</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+// ════════════════════════════════════════
+// ESTADO
+// ════════════════════════════════════════
+let TREE = [];
+let CFG = { welcome:'', defaultMsg:'', menuKw:[] };
+let path = [];          // pilha de IDs: onde o usuário está na hierarquia
+let selectedId = null;  // nó em edição
+let delCb = null;
+let simStack = [];
+
+const uid = () => '_'+Math.random().toString(36).slice(2,9);
+const norm = s => s.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+const esc  = s => String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+const esc2 = s => String(s||'').replace(/\\/g,'\\\\').replace(/`/g,'\\`').replace(/\$/g,'\\$');
+
+// ════════════════════════════════════════
+// NAVEGAÇÃO POR PANES
+// ════════════════════════════════════════
+function goPane(name) {
+  document.querySelectorAll('.pane').forEach(p => p.classList.remove('on'));
+  document.querySelectorAll('.tbtab').forEach(t => t.classList.remove('on'));
+  document.querySelectorAll('.sb-item').forEach(n => n.classList.remove('on'));
+  document.getElementById('pane-'+name).classList.add('on');
+  const idx = ['flow','settings','preview','export','pdfs'].indexOf(name);
+  document.querySelectorAll('.tbtab')[idx]?.classList.add('on');
+  document.querySelectorAll('.sb-item')[idx]?.classList.add('on');
+  if (name==='export') refreshExport();
+  if (name==='settings') refreshStats();
+  if (name==='pdfs') { renderPrazosTable(); const sp=document.getElementById('sup-texto'); if(sp&&SUPRIMENTOS_TEXTO)sp.value=SUPRIMENTOS_TEXTO; }
+}
+
+// ════════════════════════════════════════
+// TREE: encontrar nó
+// ════════════════════════════════════════
+function findNode(id, nodes) {
+  for (const n of nodes) {
+    if (n.id === id) return { node: n, siblings: nodes, idx: nodes.indexOf(n) };
+    if (n.children) { const r = findNode(id, n.children); if (r) return r; }
+  }
+  return null;
+}
+
+// ════════════════════════════════════════
+// NÍVEL ATUAL: array de nós exibidos
+// ════════════════════════════════════════
+function getCurrentLevel() {
+  if (!path.length) return TREE;
+  let cur = TREE;
+  for (const id of path) {
+    const n = cur.find(x => x.id === id);
+    if (!n || !n.children) return [];
+    cur = n.children;
+  }
+  return cur;
+}
+
+function getNodeAtPath(p) {
+  let cur = TREE;
+  let node = null;
+  for (const id of p) {
+    node = cur.find(x => x.id === id);
+    if (!node) return null;
+    cur = node.children || [];
+  }
+  return node;
+}
+
+// ════════════════════════════════════════
+// RENDERIZAR LISTA DO NÍVEL ATUAL
+// ════════════════════════════════════════
+function renderLevel() {
+  const items = getCurrentLevel();
+  const list = document.getElementById('items-list');
+  list.innerHTML = '';
+
+  if (!items.length) {
+    list.innerHTML = `<div style="text-align:center;padding:28px;color:var(--t3);font-size:12px">Nenhum item aqui.<br/>Clique em + abaixo para adicionar.</div>`;
+  } else {
+    items.forEach((n, i) => {
+      const hasKids = n.type === 'menu' && n.children && n.children.length > 0;
+      const div = document.createElement('div');
+      div.className = 'flow-item' + (n.id === selectedId ? ' active' : '') + (hasKids ? ' has-children' : '');
+      div.innerHTML = `
+        <div class="fi-key fi-key-${n.type}">${esc(n.key)}</div>
+        <div class="fi-info">
+          <div class="fi-label">${esc(n.label)}</div>
+          <div class="fi-meta">
+            <span class="fi-type-tag tag-${n.type}">${typeLabel(n.type)}</span>
+            ${(n.keywords||[]).length ? `<span style="font-size:10px;color:var(--t3)">🔑 ${n.keywords.length}</span>` : ''}
+            ${hasKids ? `<span style="font-size:10px;color:var(--blue)">${n.children.length} subitens</span>` : ''}
+          </div>
+        </div>
+        <div class="fi-actions">
+          <button class="btn btn-g btn-ico" title="Mover ↑" onclick="event.stopPropagation();moveNode('${n.id}',-1)">↑</button>
+          <button class="btn btn-g btn-ico" title="Mover ↓" onclick="event.stopPropagation();moveNode('${n.id}',1)">↓</button>
+          <button class="btn btn-d btn-ico" title="Excluir" onclick="event.stopPropagation();confirmDel('${n.id}')">🗑</button>
+        </div>
+        ${n.type === 'menu' ? `<div class="fi-arrow">▶</div>` : `<div class="fi-arrow" style="opacity:.3">·</div>`}`;
+      div.addEventListener('click', () => {
+        if (n.type === 'menu') {
+          // entra no submenu E seleciona para editar
+          path.push(n.id);
+          selectedId = n.id;
+          renderBreadcrumb();
+          renderLevel();
+          openEditor(n.id);
+        } else {
+          selectedId = n.id;
+          renderLevel();
+          openEditor(n.id);
+        }
+      });
+      list.appendChild(div);
+    });
+  }
+
+  // botão + sempre visível no final
+  const addBtn = document.createElement('div');
+  addBtn.className = 'add-item-btn';
+  const parentNode = getNodeAtPath(path);
+  const context = parentNode ? `em "${parentNode.label}"` : 'no menu principal';
+  addBtn.innerHTML = `<span style="font-size:16px">＋</span> Adicionar item ${context}`;
+  addBtn.onclick = () => openModalNew();
+  list.appendChild(addBtn);
+}
+
+// ════════════════════════════════════════
+// BREADCRUMB
+// ════════════════════════════════════════
+function renderBreadcrumb() {
+  const bc = document.getElementById('breadcrumb');
+  bc.innerHTML = '';
+
+  const root = document.createElement('span');
+  root.className = 'bc-item' + (!path.length ? ' current' : '');
+  root.textContent = '🏠 Raiz';
+  root.onclick = () => goLevel(null);
+  bc.appendChild(root);
+
+  let cur = TREE;
+  path.forEach((id, i) => {
+    const n = cur.find(x => x.id === id);
+    if (!n) return;
+    const sep = document.createElement('span');
+    sep.className = 'bc-sep';
+    sep.textContent = '›';
+    bc.appendChild(sep);
+
+    const item = document.createElement('span');
+    item.className = 'bc-item' + (i === path.length - 1 ? ' current' : '');
+    item.textContent = n.label;
+    item.title = n.label;
+    const capturedIdx = i;
+    item.onclick = () => goLevel(capturedIdx);
+    bc.appendChild(item);
+
+    cur = n.children || [];
+  });
+}
+
+function goLevel(idx) {
+  if (idx === null) {
+    path = [];
+  } else {
+    path = path.slice(0, idx + 1);
+  }
+  selectedId = null;
+  closeEditor();
+  renderBreadcrumb();
+  renderLevel();
+}
+
+// ════════════════════════════════════════
+// EDITOR DE NÓ
+// ════════════════════════════════════════
+function openEditor(id) {
+  const r = findNode(id, TREE);
+  if (!r) return;
+  const n = r.node;
+  selectedId = id;
+
+  document.getElementById('editor-empty').style.display = 'none';
+  document.getElementById('editor-form').style.display = 'block';
+  document.getElementById('editor-footer').style.display = 'flex';
+
+  // botão excluir
+  document.getElementById('btn-del-node').onclick = () => confirmDel(id);
+
+  // path legível
+  const pathLabel = buildPathLabel(id);
+
+  document.getElementById('editor-form').innerHTML = `
+    <div class="editor-node-header">
+      <div class="editor-node-icon" style="background:${typeColor(n.type)}22;color:${typeColor(n.type)}">${typeIcon(n.type)}</div>
+      <div>
+        <div class="editor-node-name">${esc(n.label)}</div>
+        <div class="editor-node-path">${pathLabel}</div>
+      </div>
+    </div>
+
+    <div class="fld fld-row">
+      <div>
+        <label>Chave</label>
+        <input id="ep-key" value="${esc(n.key)}" placeholder="1"/>
+        <div class="fld-hint">O usuário digita este valor.</div>
+      </div>
+      <div>
+        <label>Título no menu</label>
+        <input id="ep-label" value="${esc(n.label)}" placeholder="Nome da opção"/>
+      </div>
+    </div>
+
+    <div class="fld">
+      <label>Tipo</label>
+      <div class="type-pills">
+        <div class="type-pill ${n.type==='menu'?'on':''}" data-t="menu" onclick="selTypePill(this)">☰ Submenu</div>
+        <div class="type-pill ${n.type==='answer'?'on':''}" data-t="answer" onclick="selTypePill(this)">✅ Resposta final</div>
+        <div class="type-pill ${n.type==='transfer'?'on':''}" data-t="transfer" onclick="selTypePill(this)">👤 Transferir</div>
+        <div class="type-pill ${n.type==='link'?'on':''}" data-t="link" onclick="selTypePill(this)">🔗 Link</div>
+      </div>
+      <div class="fld-hint" id="type-hint">${typeHint(n.type)}</div>
+    </div>
+
+    <div class="fld" id="fld-text">
+      <label id="lbl-text">${textLabel(n.type)}</label>
+      <textarea id="ep-text" rows="6">${esc(n.text||'')}</textarea>
+      <div class="fld-hint">Use *negrito*, _itálico_ e emojis. Cada \\n é uma nova linha no WhatsApp.</div>
+    </div>
+
+    <div class="fld">
+      <label>Palavras-chave <span style="font-weight:400;color:var(--t3)">(acionam este item sem digitar o número)</span></label>
+      <div class="kw-wrap" id="ep-kw-wrap">
+        ${(n.keywords||[]).map(k => kwChipHtml(k)).join('')}
+      </div>
+      <div class="kw-add-row">
+        <input id="ep-kw-inp" placeholder="Digite e pressione Enter…" onkeydown="if(event.key==='Enter')epAddKw()"/>
+        <button class="btn btn-b btn-sm" onclick="epAddKw()">+ Add</button>
+      </div>
+    </div>
+
+    ${n.type === 'menu' ? renderChildrenPreview(n) : ''}
+  `;
+}
+
+function renderChildrenPreview(n) {
+  const kids = n.children || [];
+  const rows = kids.length
+    ? kids.map(c => `
+        <div class="cp-item" onclick="enterChild('${n.id}','${c.id}')">
+          <div class="cp-item-key fi-key-${c.type}" style="width:20px;height:20px;border-radius:5px;display:flex;align-items:center;justify-content:center;font-size:10px;font-family:'DM Mono',monospace">${esc(c.key)}</div>
+          <span style="flex:1">${esc(c.label)}</span>
+          <span class="fi-type-tag tag-${c.type}" style="font-size:9px">${typeLabel(c.type)}</span>
+        </div>`).join('')
+    : `<div class="cp-empty">Nenhum subitem ainda. Clique abaixo para adicionar.</div>`;
+
+  return `
+    <div class="fld">
+      <label>Subitens deste menu <span style="font-weight:400;color:var(--t3)">(${kids.length})</span></label>
+      <div class="children-preview">
+        <div class="cp-header">
+          <span>Itens dentro de "${esc(n.label)}"</span>
+          <button class="btn btn-b btn-xs" onclick="event.stopPropagation();enterLevel('${n.id}')">📂 Abrir e gerenciar</button>
+        </div>
+        <div class="cp-list">${rows}</div>
+      </div>
+      <div class="fld-hint">Clique em "📂 Abrir e gerenciar" para entrar neste nível e adicionar/editar subitens.</div>
+    </div>`;
+}
+
+function enterChild(parentId, childId) {
+  // Garante que o parentId está no path
+  if (!path.includes(parentId)) path.push(parentId);
+  selectedId = childId;
+  renderBreadcrumb();
+  renderLevel();
+  openEditor(childId);
+}
+
+function enterLevel(nodeId) {
+  if (!path.includes(nodeId)) path.push(nodeId);
+  selectedId = null;
+  closeEditor();
+  renderBreadcrumb();
+  renderLevel();
+}
+
+function closeEditor() {
+  document.getElementById('editor-empty').style.display = 'flex';
+  document.getElementById('editor-form').style.display = 'none';
+  document.getElementById('editor-footer').style.display = 'none';
+  selectedId = null;
+}
+
+function cancelEdit() {
+  selectedId = null;
+  closeEditor();
+  renderLevel();
+}
+
+function selTypePill(el) {
+  document.querySelectorAll('.type-pill').forEach(p => p.classList.remove('on'));
+  el.classList.add('on');
+  const t = el.dataset.t;
+  const hint = document.getElementById('type-hint');
+  const lbl = document.getElementById('lbl-text');
+  if (hint) hint.textContent = typeHint(t);
+  if (lbl) lbl.textContent = textLabel(t);
+}
+
+function epAddKw() {
+  const inp = document.getElementById('ep-kw-inp');
+  const val = inp.value.trim().toLowerCase();
+  if (!val) return;
+  const wrap = document.getElementById('ep-kw-wrap');
+  const exists = Array.from(wrap.querySelectorAll('.kw-chip')).some(el => el.dataset.kw === val);
+  if (exists) { inp.value = ''; return; }
+  const span = document.createElement('span');
+  span.className = 'kw-chip'; span.dataset.kw = val;
+  span.innerHTML = `${esc(val)}<button onclick="this.parentElement.remove()">×</button>`;
+  wrap.appendChild(span);
+  inp.value = '';
+}
+
+function kwChipHtml(k) {
+  return `<span class="kw-chip" data-kw="${esc(k)}">${esc(k)}<button onclick="this.parentElement.remove()">×</button></span>`;
+}
+
+function saveNode() {
+  if (!selectedId) return;
+  const r = findNode(selectedId, TREE);
+  if (!r) return;
+  const n = r.node;
+  n.key   = document.getElementById('ep-key').value.trim();
+  n.label = document.getElementById('ep-label').value.trim();
+  const sel = document.querySelector('.type-pill.on');
+  if (sel) {
+    const newType = sel.dataset.t;
+    if (newType === 'menu' && !n.children) n.children = [];
+    n.type = newType;
+  }
+  n.text = document.getElementById('ep-text').value;
+  n.keywords = Array.from(document.querySelectorAll('#ep-kw-wrap .kw-chip')).map(el => el.dataset.kw).filter(Boolean);
+
+  // Re-abre editor para refletir o novo estado (inclusive subitens)
+  renderBreadcrumb();
+  renderLevel();
+  openEditor(selectedId);
+  refreshStats();
+  showToast('Salvo!');
+}
+
+// ════════════════════════════════════════
+// CRUD NODES
+// ════════════════════════════════════════
+function openModalNew() {
+  document.getElementById('modal-new').classList.add('on');
+  const parentNode = getNodeAtPath(path);
+  document.getElementById('modal-new-title').textContent = parentNode
+    ? `Novo item em "${parentNode.label}"`
+    : 'Novo item no menu principal';
+}
+
+function createNode(type) {
+  closeModal('modal-new');
+  const siblings = getCurrentLevel();
+  const key = String(siblings.length + 1);
+  const newNode = { id: uid(), key, label: 'Novo item', type, text: '', keywords: [], children: [] };
+  siblings.push(newNode);
+  selectedId = newNode.id;
+  renderBreadcrumb();
+  renderLevel();
+  openEditor(newNode.id);
+  refreshStats();
+  showToast('Item criado — edite e salve!');
+}
+
+function moveNode(id, dir) {
+  const r = findNode(id, TREE);
+  if (!r) return;
+  const arr = r.siblings, i = r.idx, j = i + dir;
+  if (j < 0 || j >= arr.length) return;
+  [arr[i], arr[j]] = [arr[j], arr[i]];
+  renderLevel();
+}
+
+function removeNode(id) {
+  const rem = arr => { const i = arr.findIndex(n => n.id === id); if (i > -1) { arr.splice(i,1); return true; } for (const n of arr) if (n.children && rem(n.children)) return true; return false; };
+  rem(TREE);
+  // Se estávamos dentro do nó removido, sobe um nível
+  if (path.includes(id)) path = path.slice(0, path.indexOf(id));
+  selectedId = null;
+  closeEditor();
+  renderBreadcrumb();
+  renderLevel();
+  refreshStats();
+}
+
+function confirmDel(id) {
+  delCb = () => removeNode(id);
+  document.getElementById('modal-del').classList.add('on');
+}
+
+document.getElementById('btn-del-confirm').onclick = () => {
+  if (delCb) delCb();
+  closeModal('modal-del');
+  delCb = null;
+};
+
+// ════════════════════════════════════════
+// MENU KW (configurações)
+// ════════════════════════════════════════
+function renderMenuKw() {
+  document.getElementById('kw-menu-wrap').innerHTML = (CFG.menuKw||[]).map(k => `<span class="kw-chip" data-kw="${esc(k)}">${esc(k)}<button onclick="rmMenuKw('${esc(k)}')">×</button></span>`).join('');
+}
+function addMenuKw() {
+  const inp = document.getElementById('kw-menu-inp');
+  const v = inp.value.trim().toLowerCase();
+  if (!v || CFG.menuKw.includes(v)) return;
+  CFG.menuKw.push(v); inp.value = ''; renderMenuKw();
+}
+function rmMenuKw(kw) { CFG.menuKw = CFG.menuKw.filter(k => k !== kw); renderMenuKw(); }
+
+// ════════════════════════════════════════
+// STATS
+// ════════════════════════════════════════
+function countNodes(nodes, d=0) {
+  let m=0, a=0, k=0, mx=d;
+  for (const n of nodes) {
+    if (n.type==='menu') m++; else a++;
+    k += (n.keywords||[]).length;
+    if (n.children&&n.children.length) { const r=countNodes(n.children,d+1); m+=r.m; a+=r.a; k+=r.k; if(r.mx>mx)mx=r.mx; }
+  }
+  return {m,a,k,mx};
+}
+function refreshStats() {
+  const s = countNodes(TREE);
+  document.getElementById('st-m').textContent = s.m;
+  document.getElementById('st-a').textContent = s.a;
+  document.getElementById('st-d').textContent = s.mx;
+  document.getElementById('st-k').textContent = s.k;
+}
+
+// ════════════════════════════════════════
+// SIMULADOR
+// ════════════════════════════════════════
+function simulate() {
+  const inp = document.getElementById('sim-inp');
+  const msg = inp.value.trim(); if (!msg) return;
+  addBubble(msg, true);
+  const resp = getBotResp(msg);
+  setTimeout(() => addBubble(resp, false), 250);
+  inp.value = '';
+}
+
+function getBotResp(msg) {
+  const t = norm(msg);
+  const welcome = document.getElementById('cfg-welcome').value || 'Menu não configurado.';
+  const def = document.getElementById('cfg-default').value || 'Não entendi. Digite 0 para o menu.';
+  const mkws = (CFG.menuKw||[]).map(norm);
+  if (mkws.some(k => t===k||t.includes(k)) || t==='0') { simStack=[]; return welcome; }
+
+  const ctx = simStack.length ? simStack[simStack.length-1].children : TREE;
+  let found = ctx.find(n => norm(n.key)===t);
+  if (!found) found = findByKwAll(t, TREE);
+  if (!found) return def;
+
+  if (found.type==='menu') {
+    simStack.push(found);
+    let s = found.text ? found.text+'\n\n' : `*${found.label}*\n\n`;
+    s += found.children.map(c => `${c.key}️⃣  ${c.label}`).join('\n');
+    s += '\n\n_0️⃣  Menu principal_';
+    return s;
+  }
+  simStack = [];
+  return found.text || '(sem resposta configurada)';
+}
+
+function findByKwAll(t, nodes) {
+  for (const n of nodes) {
+    if ((n.keywords||[]).some(k => t.includes(norm(k)))) return n;
+    if (n.children) { const r = findByKwAll(t,n.children); if(r) return r; }
+  }
+  return null;
+}
+
+function addBubble(text, isUser) {
+  const body = document.getElementById('phone-body');
+  const now = new Date().toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit'});
+  const d = document.createElement('div');
+  const safe = esc(text).replace(/\*(.*?)\*/g,'<b>$1</b>').replace(/_(.*?)_/g,'<i>$1</i>').replace(/\n/g,'<br>');
+  d.innerHTML = `<div class="bubble ${isUser?'u':''}">${safe}</div><div class="bubble-ts">${now}</div>`;
+  body.appendChild(d);
+  body.scrollTop = body.scrollHeight;
+}
+function clearChat() { document.getElementById('phone-body').innerHTML='<div class="bubble">Digite "oi" para começar 👋</div>'; simStack=[]; }
+
+// ════════════════════════════════════════
+// EXPORT
+// ════════════════════════════════════════
+function serTree(nodes, ind=0) {
+  const p='  '.repeat(ind);
+  return nodes.map(n => {
+    const kids = n.children&&n.children.length ? `[\n${serTree(n.children,ind+1)}\n${p}]` : '[]';
+    return `${p}{ id:'${n.id}',key:'${esc2(n.key)}',label:'${esc2(n.label)}',type:'${n.type}',text:\`${esc2(n.text||'')}\`,keywords:${JSON.stringify(n.keywords||[])},children:${kids} }`;
+  }).join(',\n');
+}
+
+function buildJS() {
+  const wEl = document.getElementById('cfg-welcome');
+  const dEl = document.getElementById('cfg-default');
+  const w = wEl ? wEl.value : CFG.welcome;
+  const d = dEl ? dEl.value : CFG.defaultMsg;
+  return `// respostas.js — gerado pelo painel v3 em ${new Date().toLocaleString('pt-BR')}
+const MENU_WELCOME=\`${esc2(w)}\`;
+const MENU_DEFAULT=\`${esc2(d)}\`;
+const MENU_TRIGGERS=${JSON.stringify(CFG.menuKw||[])};
+const TREE=[
+${serTree(TREE,1)}
+];
+function _norm(s){return s.toLowerCase().normalize('NFD').replace(/[\\u0300-\\u036f]/g,'').trim();}
+function _fkw(t,nodes){for(const n of nodes){if((n.keywords||[]).some(k=>t.includes(_norm(k))))return n;if(n.children){const r=_fkw(t,n.children);if(r)return r;}}return null;}
+function _sub(n){let s=n.text?n.text+'\\n\\n':'*'+n.label+'*\\n\\n';s+=n.children.map(c=>c.key+'  '+c.label).join('\\n');s+='\\n\\n0  Menu principal';return s;}
+const _stacks=new Map();
+function obterResposta(phone,msg){
+  const t=_norm(msg),stack=_stacks.get(phone)||[];
+  if(MENU_TRIGGERS.some(k=>t===_norm(k))||t==='0'){_stacks.set(phone,[]);return MENU_WELCOME;}
+  let ctx=TREE;
+  for(const id of stack){const n=ctx.find(x=>x.id===id);if(n&&n.children)ctx=n.children;else{ctx=TREE;break;}}
+  let found=ctx.find(n=>_norm(n.key)===t)||_fkw(t,TREE);
+  if(!found)return MENU_DEFAULT;
+  if(found.type==='menu'){stack.push(found.id);_stacks.set(phone,stack);return _sub(found);}
+  _stacks.set(phone,[]);return found.text||'(sem resposta: '+found.label+')';
+}
+module.exports={obterResposta};
+`;
+}
+
+function refreshExport() {
+  const el = document.getElementById('export-pre');
+  if (el) el.value = buildJS();
+}
+
+function exportJS() {
+  refreshExport();
+  const b = new Blob([buildJS()],{type:'text/javascript'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(b);
+  a.download = 'respostas.js';
+  a.click();
+  showToast('respostas.js baixado!');
+}
+
+// ════════════════════════════════════════
+// SAVE / LOAD
+// ════════════════════════════════════════
+function _saveAllLocal() {
+  const w = document.getElementById('cfg-welcome');
+  const d = document.getElementById('cfg-default');
+  if (w) CFG.welcome = w.value;
+  if (d) CFG.defaultMsg = d.value;
+  localStorage.setItem('cbot_v3', JSON.stringify({TREE, CFG}));
+  refreshStats();
+  setModeBadge('local');
+  showToast('Salvo no navegador (localStorage)!');
+}
+
+function syncCfgFields() {
+  const w = document.getElementById('cfg-welcome');
+  const d = document.getElementById('cfg-default');
+  if (w) w.value = CFG.welcome||'';
+  if (d) d.value = CFG.defaultMsg||'';
+}
+
+function loadSaved() {
+  const s = localStorage.getItem('cbot_v3');
+  if (s) {
+    try {
+      const d = JSON.parse(s);
+      TREE = d.TREE||[];
+      CFG = Object.assign(CFG, d.CFG||{});
+    } catch(e) {
+      loadDefault();
+      return;
+    }
+  } else {
+    loadDefault();
+    return;
+  }
+  syncCfgFields();
+  renderMenuKw(); renderBreadcrumb(); renderLevel(); refreshStats();
+}
+
+// ════════════════════════════════════════
+// DEFAULTS
+// ════════════════════════════════════════
+function loadDefault() {
+  CFG.welcome = `Olá! 👋 Bem-vindo ao atendimento de *Prestação de Contas*.\n\nEscolha uma opção:\n1️⃣  Prazo de entrega\n2️⃣  Documentos necessários\n3️⃣  Status e acompanhamento\n4️⃣  Falar com atendente\n\n_Digite o número da opção._`;
+  CFG.defaultMsg = `Desculpe, não entendi. 🤔\nDigite *0* para o menu ou *4* para falar com atendente.`;
+  CFG.menuKw = ['oi','ola','olá','menu','inicio','início','comecar','começar','bom dia','boa tarde','boa noite'];
+
+  TREE = [
+    { id:uid(),key:'1',label:'Prazo de entrega',type:'menu',text:'',keywords:['prazo','data','vencimento','quando'],children:[
+      { id:uid(),key:'1',label:'Convênios federais',type:'answer',keywords:['federal','convenio'],text:'📅 *Prazo — Convênios Federais*\n\n• Prazo: *60 dias* após encerramento da vigência\n• Documentos via SICONV\n\nDigite *0* para o menu.',children:[] },
+      { id:uid(),key:'2',label:'Convênios estaduais',type:'answer',keywords:['estadual'],text:'📅 *Prazo — Convênios Estaduais*\n\n• Prazo: *30 dias* após fim da execução\n\nDigite *0* para o menu.',children:[] },
+      { id:uid(),key:'3',label:'Contratos e emendas',type:'answer',keywords:['contrato','emenda'],text:'📅 *Contratos e Emendas*\n\nConsulte o instrumento firmado.\n\nDigite *0* para o menu.',children:[] },
+    ]},
+    { id:uid(),key:'2',label:'Documentos necessários',type:'menu',text:'',keywords:['documento','doc','papel'],children:[
+      { id:uid(),key:'1',label:'Lista de documentos',type:'answer',keywords:['lista','quais'],text:'📄 *Documentos necessários*\n\n• Relatório de execução físico-financeira\n• Extrato bancário\n• Notas fiscais originais\n• Relação de pagamentos\n\nDigite *0* para o menu.',children:[] },
+      { id:uid(),key:'2',label:'Modelos e formulários',type:'link',keywords:['modelo','formulario'],text:'🔗 *Modelos e formulários*\n\nhttps://sistema.prefeitura.gov.br/modelos\n\nDigite *0* para o menu.',children:[] },
+    ]},
+    { id:uid(),key:'3',label:'Status e acompanhamento',type:'menu',text:'',keywords:['status','andamento','situacao'],children:[
+      { id:uid(),key:'1',label:'Consultar processo',type:'answer',keywords:['consulta','numero'],text:'🔍 *Consultar situação*\n\nhttps://sistema.prefeitura.gov.br/prestacao\n\nDigite *0* para o menu.',children:[] },
+      { id:uid(),key:'2',label:'Pendências e glosas',type:'menu',keywords:['pendencia','glosa'],text:'',children:[
+        { id:uid(),key:'1',label:'Como regularizar',type:'answer',keywords:['regularizar'],text:'⚠️ *Regularizar pendências*\n\nEnvie os documentos indicados na notificação com o número do processo.\n\nDigite *0* para o menu.',children:[] },
+        { id:uid(),key:'2',label:'Devolução de valores (GRU)',type:'answer',keywords:['devolucao','gru'],text:'💰 *Devolução — GRU*\n\nhttps://sistema.prefeitura.gov.br/gru\n\nDigite *0* para o menu.',children:[] },
+      ]},
+    ]},
+    { id:uid(),key:'4',label:'Falar com atendente',type:'transfer',text:'👤 *Atendimento humano*\n\nAguarde — seg–sex, 8h–17h.\nUm atendente irá te chamar.',keywords:['atendente','humano','falar','ajuda'],children:[] },
+  ];
+
+  path=[]; selectedId=null;
+  syncCfgFields();
+  closeEditor(); renderMenuKw(); renderBreadcrumb(); renderLevel(); refreshStats();
+  showToast('Dados padrão carregados');
+}
+
+// ════════════════════════════════════════
+// UTILS
+// ════════════════════════════════════════
+function typeLabel(t){ return {menu:'Submenu',answer:'Resposta final',transfer:'Transferir',link:'Link'}[t]||t; }
+function typeIcon(t){ return {menu:'☰',answer:'✅',transfer:'👤',link:'🔗'}[t]||'?'; }
+function typeColor(t){ return {menu:'var(--blue)',answer:'var(--accent)',transfer:'var(--purple)',link:'var(--orange)'}[t]||'var(--t2)'; }
+function typeHint(t){ return {menu:'Este item exibirá subitens quando o usuário escolhê-lo.',answer:'Este item entregará o texto de resposta e encerrará o fluxo.',transfer:'O usuário será transferido para um atendente humano.',link:'Uma URL será enviada ao usuário.'}[t]||''; }
+function textLabel(t){ return {menu:'Texto introdutório (opcional)',answer:'Texto da resposta final',transfer:'Mensagem ao transferir',link:'Mensagem + URL'}[t]||'Texto'; }
+
+function buildPathLabel(id) {
+  const parts = [];
+  const find = (nodes, acc) => {
+    for (const n of nodes) {
+      if (n.id === id) { parts.push(...acc, n.label); return true; }
+      if (n.children && find(n.children, [...acc, n.label])) return true;
+    }
+    return false;
+  };
+  find(TREE, []);
+  return parts.join(' › ');
+}
+
+function closeModal(id){ document.getElementById(id).classList.remove('on'); }
+
+let _tt;
+function showToast(msg, isError=false) {
+  const t = document.getElementById('toast');
+  t.textContent = (isError ? '⚠️ ' : '✓ ') + msg;
+  t.style.borderColor = isError ? 'rgba(255,83,112,.4)' : '';
+  t.style.color = isError ? 'var(--red)' : '';
+  t.classList.add('on');
+  clearTimeout(_tt);
+  _tt = setTimeout(() => { t.classList.remove('on'); t.style.borderColor=''; t.style.color=''; }, 2800);
+}
+
+// ════════════════════════════════════════
+// JSON EXPORT / IMPORT
+// ════════════════════════════════════════
+
+// Monta o objeto completo de configuração
+function buildConfigObj() {
+  const wEl = document.getElementById('cfg-welcome');
+  const dEl = document.getElementById('cfg-default');
+  if (wEl) CFG.welcome    = wEl.value;
+  if (dEl) CFG.defaultMsg = dEl.value;
+  return { version: '3.0', savedAt: new Date().toISOString(), CFG, TREE };
+}
+
+// Exporta chatbot-config.json (Opção A — manual)
+function exportJSON() {
+  const obj  = buildConfigObj();
+  const blob = new Blob([JSON.stringify(obj, null, 2)], { type: 'application/json' });
+  const a    = document.createElement('a');
+  a.href     = URL.createObjectURL(blob);
+  a.download = 'chatbot-config.json';
+  a.click();
+  // também salva no localStorage como backup
+  localStorage.setItem('cbot_v3', JSON.stringify({ TREE, CFG }));
+  setModeBadge('json');
+  showToast('chatbot-config.json salvo!');
+}
+
+// Abre o seletor de arquivo
+function importJSON() {
+  document.getElementById('json-file-input').click();
+}
+
+// Processa o arquivo .json selecionado
+function handleJSONImport(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try {
+      const data = JSON.parse(e.target.result);
+      if (!data.TREE || !data.CFG) throw new Error('Formato inválido');
+      TREE = data.TREE;
+      CFG  = Object.assign({ welcome:'', defaultMsg:'', menuKw:[] }, data.CFG);
+      path = []; selectedId = null;
+      syncCfgFields();
+      closeEditor(); renderMenuKw(); renderBreadcrumb(); renderLevel(); refreshStats();
+      // salva no localStorage também
+      localStorage.setItem('cbot_v3', JSON.stringify({ TREE, CFG }));
+      setModeBadge('json');
+      showToast('Arquivo importado: ' + file.name);
+    } catch(err) {
+      showToast('Erro ao ler o arquivo .json', true);
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = ''; // reset para permitir reimportar o mesmo arquivo
+}
+
+// setModeBadge definido abaixo (modo servidor)
+
+
+// ============================================================
+// PDF / PRAZOS / SUPRIMENTOS
+// ============================================================
+let PRAZOS_DATA = [];      // [{empenho,ob,valor,prazoReal,prazoBot}]
+let SUPRIMENTOS_TEXTO = '';
+
+// ---------- PRAZOS TABLE ----------
+function renderPrazosTable() {
+  const tbody = document.getElementById('prazos-tbody');
+  const empty = document.getElementById('prazos-empty');
+  if (!tbody) return;
+  if (!PRAZOS_DATA.length) { tbody.innerHTML=''; empty.style.display='block'; return; }
+  empty.style.display = 'none';
+  tbody.innerHTML = PRAZOS_DATA.map((r,i) => `
+    <tr style="border-bottom:1px solid var(--b1)">
+      <td style="padding:7px 10px"><input value="${esc(r.empenho)}" onchange="PRAZOS_DATA[${i}].empenho=this.value" style="background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none"/></td>
+      <td style="padding:7px 10px"><input value="${esc(r.ob)}" onchange="PRAZOS_DATA[${i}].ob=this.value" style="background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none"/></td>
+      <td style="padding:7px 10px"><input value="${esc(r.valor)}" onchange="PRAZOS_DATA[${i}].valor=this.value" style="background:transparent;border:none;color:var(--text);font-size:12px;width:100%;outline:none"/></td>
+      <td style="padding:7px 10px"><input type="date" value="${esc(r.prazoReal)}" onchange="PRAZOS_DATA[${i}].prazoReal=this.value;PRAZOS_DATA[${i}].prazoBot=subtrair15(this.value);renderPrazosTable()" style="background:transparent;border:none;color:var(--text);font-size:12px;outline:none"/></td>
+      <td style="padding:7px 10px;color:var(--accent);font-weight:500">${formatarDataBR(r.prazoBot)}</td>
+      <td style="padding:7px 10px"><button class="btn btn-d btn-xs" onclick="PRAZOS_DATA.splice(${i},1);renderPrazosTable()">x</button></td>
+    </tr>`).join('');
+}
+
+function addPrazoManual() {
+  PRAZOS_DATA.push({ empenho:'', ob:'', valor:'', prazoReal:'', prazoBot:'' });
+  renderPrazosTable();
+}
+
+function subtrair15(iso) {
+  if (!iso) return '';
+  try {
+    const d = new Date(iso + 'T12:00:00');
+    d.setDate(d.getDate() - 15);
+    return d.toISOString().slice(0,10);
+  } catch { return ''; }
+}
+
+function formatarDataBR(iso) {
+  if (!iso) return '-';
+  try { const [y,m,d]=iso.split('-'); return d+'/'+m+'/'+y; } catch { return iso; }
+}
+
+// ---------- PDF PRAZOS ----------
+async function handlePrazosPDF(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  setPdfStatus('pdf-prazos-status', 'Lendo PDF...', 'info');
+
+  try {
+    const text = await extractPDFText(file);
+    const rows = parsePrazosTable(text);
+    if (!rows.length) {
+      setPdfStatus('pdf-prazos-status', 'PDF lido, mas nao foi possivel extrair a tabela automaticamente. Adicione as linhas manualmente.', 'warn');
+    } else {
+      PRAZOS_DATA = rows;
+      renderPrazosTable();
+      setPdfStatus('pdf-prazos-status', rows.length + ' registros extraidos de ' + file.name, 'ok');
+    }
+  } catch(e) {
+    setPdfStatus('pdf-prazos-status', 'Erro ao ler PDF: ' + e.message, 'err');
+  }
+}
+
+// Tenta extrair tabela do texto do PDF via padroes comuns
+function parsePrazosTable(text) {
+  const rows = [];
+  const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+
+  // Padrao: detecta linhas com datas DD/MM/YYYY
+  const dateRe = /(\d{2}\/\d{2}\/\d{4})/g;
+  const moneyRe = /R?\$?\s*[\d.,]+/;
+  const empRe = /NE\d+|N[EA]\s*\d+|\d{4}[A-Z]{2}\d+|\d{6,}/i;
+
+  for (const line of lines) {
+    const dates = [...line.matchAll(dateRe)].map(m => m[1]);
+    if (!dates.length) continue;
+
+    const empMatch = line.match(empRe);
+    const monMatch = line.match(moneyRe);
+
+    if (empMatch || monMatch) {
+      const prazoReal = dates[dates.length - 1]; // ultima data da linha = prazo
+      const prazoIso = brToISO(prazoReal);
+      rows.push({
+        empenho: empMatch ? empMatch[0].trim() : '',
+        ob: '',
+        valor: monMatch ? monMatch[0].trim() : '',
+        prazoReal: prazoIso,
+        prazoBot: subtrair15(prazoIso),
+      });
+    }
+  }
+  return rows;
+}
+
+function brToISO(br) {
+  if (!br) return '';
+  const [d,m,y] = br.split('/');
+  return y + '-' + m + '-' + d;
+}
+
+// ---------- PDF SUPRIMENTOS ----------
+async function handleSuprimentosPDF(event) {
+  const file = event.target.files[0];
+  if (!file) return;
+  event.target.value = '';
+  setPdfStatus('pdf-sup-status', 'Lendo PDF...', 'info');
+
+  try {
+    const text = await extractPDFText(file);
+    SUPRIMENTOS_TEXTO = text;
+    const el = document.getElementById('sup-texto');
+    if (el) el.value = text;
+    setPdfStatus('pdf-sup-status', 'PDF carregado: ' + file.name + ' (' + text.length + ' caracteres)', 'ok');
+  } catch(e) {
+    setPdfStatus('pdf-sup-status', 'Erro ao ler PDF: ' + e.message, 'err');
+  }
+}
+
+// ---------- TESTAR IA SUPRIMENTOS ----------
+async function testarSuprimentos() {
+  const inp = document.getElementById('sup-teste-inp');
+  const resp = document.getElementById('sup-teste-resp');
+  const texto = document.getElementById('sup-texto')?.value || SUPRIMENTOS_TEXTO;
+  const pergunta = inp?.value?.trim();
+
+  if (!pergunta) { showToast('Digite uma pergunta para testar', true); return; }
+  if (!texto || texto.length < 10) { showToast('Importe o PDF de suprimentos primeiro', true); return; }
+
+  resp.style.display = 'block';
+  resp.textContent = 'Consultando IA...';
+
+  try {
+    const r = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 400,
+        system: 'Voce e um assistente especializado em suprimentos de fundos do setor publico. Responda se o item e PERMITIDO ou NAO PERMITIDO com base nas regras abaixo. Use emojis de check ou x. Seja objetivo, maximo 5 linhas.\n\nREGRAS:\n' + texto,
+        messages: [{ role: 'user', content: pergunta }],
+      }),
+    });
+    const data = await r.json();
+    resp.textContent = data.content?.[0]?.text || 'Sem resposta da IA.';
+  } catch(e) {
+    resp.textContent = 'Erro: ' + e.message + '\n\nA funcao de teste funciona apenas dentro do Claude.ai. No WhatsApp, use a variavel ANTHROPIC_API_KEY na Vercel.';
+  }
+}
+
+// ---------- EXTRAIR TEXTO DO PDF (pdf.js) ----------
+async function extractPDFText(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      try {
+        // Usa pdf.js se disponivel, senao fallback para texto simples
+        if (window.pdfjsLib) {
+          const pdf = await pdfjsLib.getDocument({ data: new Uint8Array(e.target.result) }).promise;
+          let fullText = '';
+          for (let i = 1; i <= pdf.numPages; i++) {
+            const page = await pdf.getPage(i);
+            const tc = await page.getTextContent();
+            const pageText = tc.items.map(it => it.str).join(' ');
+            fullText += pageText + '\n';
+          }
+          resolve(fullText);
+        } else {
+          reject(new Error('pdf.js nao carregado. Verifique a conexao com a internet.'));
+        }
+      } catch(err) { reject(err); }
+    };
+    reader.onerror = () => reject(new Error('Erro ao ler arquivo'));
+    reader.readAsArrayBuffer(file);
+  });
+}
+
+// ---------- EXPORT dados.js ----------
+function exportDadosJS() {
+  // Sincroniza texto suprimentos do textarea
+  const supEl = document.getElementById('sup-texto');
+  if (supEl) SUPRIMENTOS_TEXTO = supEl.value;
+
+  const prazosStr = PRAZOS_DATA.length
+    ? PRAZOS_DATA.map(r =>
+        `  { empenho:${JSON.stringify(r.empenho)}, ob:${JSON.stringify(r.ob)}, valor:${JSON.stringify(r.valor)}, prazoReal:${JSON.stringify(r.prazoReal)}, prazoBot:${JSON.stringify(r.prazoBot)} }`
+      ).join(',\n')
+    : '  // Nenhum dado cadastrado';
+
+  const supSafe = (SUPRIMENTOS_TEXTO||'').replace(/`/g,'\\`').replace(/\$/g,'\\$');
+
+  const code = `// dados.js — gerado pelo painel em ${new Date().toLocaleString('pt-BR')}
+// Nao edite manualmente — use o painel admin/index.html aba PDFs
+
+const PRAZOS = [
+${prazosStr}
+];
+
+const SUPRIMENTOS_TEXTO = \`${supSafe}\`;
+
+module.exports = { PRAZOS, SUPRIMENTOS_TEXTO };
+`;
+
+  const preview = document.getElementById('dados-preview');
+  if (preview) preview.value = code;
+
+  const blob = new Blob([code], { type: 'text/javascript' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'dados.js';
+  a.click();
+  showToast('dados.js baixado!');
+}
+
+// ---------- HELPERS ----------
+function setPdfStatus(id, msg, type) {
+  const el = document.getElementById(id);
+  if (!el) return;
+  const colors = { ok:'var(--accent)', warn:'var(--orange)', err:'var(--red)', info:'var(--blue)' };
+  el.style.color = colors[type] || 'var(--t2)';
+  el.textContent = msg;
+}
+
+// Carrega / salva PRAZOS_DATA e SUPRIMENTOS_TEXTO no config
+const _origBuildConfig = buildConfigObj;
+buildConfigObj = function() {
+  const supEl = document.getElementById('sup-texto');
+  if (supEl) SUPRIMENTOS_TEXTO = supEl.value;
+  const base = _origBuildConfig();
+  base.PRAZOS_DATA = PRAZOS_DATA;
+  base.SUPRIMENTOS_TEXTO = SUPRIMENTOS_TEXTO;
+  return base;
+};
+
+const _origLoadSaved2 = loadSaved;
+loadSaved = function() {
+  _origLoadSaved2();
+  const s = localStorage.getItem('cbot_v3');
+  if (s) {
+    try {
+      const d = JSON.parse(s);
+      if (d.PRAZOS_DATA) PRAZOS_DATA = d.PRAZOS_DATA;
+      if (d.SUPRIMENTOS_TEXTO) {
+        SUPRIMENTOS_TEXTO = d.SUPRIMENTOS_TEXTO;
+        const el = document.getElementById('sup-texto');
+        if (el) el.value = SUPRIMENTOS_TEXTO;
+      }
+    } catch(e) {}
+  }
+  renderPrazosTable();
+};
+
+
+// ════════════════════════════════════════
+// MODO SERVIDOR (Node.js local)
+// Detecta se está rodando via server.js ou Live Server
+// ════════════════════════════════════════
+const IS_SERVER = (location.port === '4000');
+
+// Salva via servidor Node.js (automático no disco)
+async function saveToServer() {
+  const obj = buildConfigObj();
+  try {
+    const r = await fetch('/save-config', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(obj)
+    });
+    const data = await r.json();
+    if (data.ok) {
+      setModeBadge('server');
+      showToast('Salvo automaticamente em chatbot-config.json!');
+    } else {
+      throw new Error(data.error);
+    }
+  } catch(e) {
+    showToast('Erro ao salvar no servidor: ' + e.message, true);
+  }
+}
+
+// Carrega config do servidor Node.js ao iniciar
+async function loadFromServer() {
+  try {
+    const r = await fetch('/load-config');
+    if (!r.ok) { loadSaved(); return; }
+    const data = await r.json();
+    if (!data.TREE || !data.CFG) { loadSaved(); return; }
+    TREE = data.TREE;
+    CFG  = Object.assign({ welcome:'', defaultMsg:'', menuKw:[] }, data.CFG);
+    path = []; selectedId = null;
+    syncCfgFields();
+    closeEditor(); renderMenuKw(); renderBreadcrumb(); renderLevel(); refreshStats();
+    setModeBadge('server');
+    showToast('Configuração carregada do arquivo .json!');
+  } catch(e) {
+    loadSaved(); // fallback para localStorage
+  }
+}
+
+// Sobrescreve saveAll quando em modo servidor
+function saveAll() {
+  if (IS_SERVER) {
+    saveToServer();
+  } else {
+    _saveAllLocal();
+  }
+}
+
+// Badge modo servidor
+function setModeBadge(mode) {
+  const b = document.getElementById('save-mode-badge');
+  if (!b) return;
+  if (mode === 'server') {
+    b.textContent = '🖥️ Modo servidor (auto)';
+    b.style.background = 'rgba(167,139,250,.12)';
+    b.style.color = 'var(--purple)';
+    b.style.borderColor = 'rgba(167,139,250,.3)';
+  } else if (mode === 'json') {
+    b.textContent = '📄 Modo .json';
+    b.style.background = 'rgba(0,212,170,.12)';
+    b.style.color = 'var(--accent)';
+    b.style.borderColor = 'rgba(0,212,170,.3)';
+  } else {
+    b.textContent = '💾 localStorage';
+    b.style.background = 'rgba(79,142,255,.12)';
+    b.style.color = 'var(--blue)';
+    b.style.borderColor = 'rgba(79,142,255,.25)';
+  }
+}
+
+// INIT
+if (IS_SERVER) {
+  loadFromServer();
+} else {
+  loadSaved();
+}
+</script>
+</body>
+</html>
