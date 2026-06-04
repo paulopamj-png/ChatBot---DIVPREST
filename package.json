@@ -1,0 +1,9 @@
+{
+  "name": "chatbot-prestacao-contas",
+  "version": "1.0.0",
+  "description": "Chatbot WhatsApp estático para Prestação de Contas",
+  "main": "api/webhook.js",
+  "engines": {
+    "node": ">=18"
+  }
+}
